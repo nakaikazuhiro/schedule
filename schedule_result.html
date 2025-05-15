@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>日程集計画面</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .score {
+      font-weight: bold;
+      background-color: #e0f7fa;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>日程集計画面</h1>
+  <div id="tableContainer"></div>
+  <button onclick="downloadCSV()">CSVをダウンロード</button>
+  <script>
+   // 全てのlocalStorageから参加者データを読み込む
+const participantData = [];
+
+for (let i = 0; i < localStorage.length; i++) {
+  const key = localStorage.key(i);
+  if (key.startsWith("answers_")) {
+    try {
+      const val = JSON.parse(localStorage.getItem(key));
+      participantData.push(val);
+    } catch {}
+  }
+}
+
+    const scoreMap = { "○": 1, "△": 0.5, "×": 0 };
+
+    function renderTable(data) {
+      // 日付リスト取得
+      const allTimes = Object.keys(data[0].availability);
+
+      // 集計行作成
+      const totals = {};
+      allTimes.forEach(dt => {
+        totals[dt] = 0;
+        data.forEach(p => {
+          const val = p.availability[dt] || "×";
+          totals[dt] += scoreMap[val];
+        });
+      });
+
+      // 表作成
+      let html = "<table><tr><th>日時</th>";
+      data.forEach(p => html += `<th>${p.name}</th>`);
+      html += "<th>合計点</th></tr>";
+
+      allTimes.forEach(dt => {
+        html += `<tr><td>${dt}</td>`;
+        data.forEach(p => {
+          const mark = p.availability[dt] || "×";
+          html += `<td>${mark}</td>`;
+        });
+        html += `<td class="score">${totals[dt]}</td></tr>`;
+      });
+
+      html += "</table>";
+      document.getElementById("tableContainer").innerHTML = html;
+    }
+
+    renderTable(participantData);
+function downloadCSV() {
+  if (participantData.length === 0) {
+    alert("集計データがありません");
+    return;
+  }
+
+  const allTimes = Object.keys(participantData[0].availability);
+  const headers = ["日時", ...participantData.map(p => p.name), "合計点"];
+  const rows = [headers];
+
+  for (const dt of allTimes) {
+    const row = [dt];
+    let total = 0;
+    for (const p of participantData) {
+      const mark = p.availability[dt] || "×";
+      row.push(mark);
+      total += mark === "○" ? 1 : mark === "△" ? 0.5 : 0;
+    }
+    row.push(total);
+    rows.push(row);
+  }
+
+  const csvContent = rows.map(r => r.join(",")).join("\n");
+  const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" }); // \uFEFF for Excel
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "schedule_result.csv";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+  </script>
+
+</body>
+</html>

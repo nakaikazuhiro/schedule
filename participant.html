@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>参加者画面 - 日程調整</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    .time-slot {
+      margin: 10px 0;
+    }
+    .label {
+      display: inline-block;
+      width: 200px;
+    }
+    .choice-btn {
+      margin: 0 5px;
+      padding: 5px 10px;
+      cursor: pointer;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    .selected-choice {
+      font-weight: bold;
+      background-color: #4CAF50;
+      color: white;
+    }
+    .name-input {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>参加者画面：参加可否を選択</h1>
+
+  <!-- 名前入力欄 -->
+  <div class="name-input">
+    <label for="name">お名前：</label>
+    <input type="text" id="name" placeholder="例：田中 太郎">
+  </div>
+
+  <div id="slotsContainer"></div>
+
+  <button onclick="submitAnswers()">送信</button>
+
+  <script>
+    let scheduleData = {};
+
+    try {
+      const stored = localStorage.getItem("scheduleData");
+      if (!stored) throw new Error("データ未設定");
+      scheduleData = JSON.parse(stored);
+    } catch (e) {
+      alert("候補日程データが見つかりません。\n開催者画面で設定してください。");
+    }
+
+    const answers = {}; // {"2025-06-01 10:00": "○", ...}
+
+    const renderSlots = () => {
+  const container = document.getElementById("slotsContainer");
+  container.innerHTML = "";
+
+  for (const [date, timesObj] of Object.entries(scheduleData)) {
+    for (const time of Object.keys(timesObj)) {
+      const key = `${date} ${time}`;
+
+      // ⭐ 初期状態が undefined のとき "×" を代入
+      if (!(key in answers)) {
+        answers[key] = "×";
+      }
+
+      const div = document.createElement("div");
+      div.className = "time-slot";
+
+      const label = document.createElement("span");
+      label.className = "label";
+      label.textContent = key;
+      div.appendChild(label);
+
+      ["○", "△", "×"].forEach(choice => {
+        const btn = document.createElement("button");
+        btn.textContent = choice;
+        btn.className = "choice-btn";
+        btn.onclick = () => {
+          answers[key] = choice;
+          renderSlots();
+        };
+        if (answers[key] === choice) {
+          btn.classList.add("selected-choice");
+        }
+        div.appendChild(btn);
+      });
+
+      container.appendChild(div);
+    }
+  }
+};
+
+
+    const submitAnswers = () => {
+  const name = document.getElementById("name").value.trim();
+  if (!name) {
+    alert("お名前を入力してください");
+    return;
+  }
+
+  const result = {
+    name: name,
+    availability: answers
+  };
+
+  fetch("https://script.google.com/macros/s/AKfycbwTymtdbwCXQVOHRZ8OIXw85HqK98dEvUkRoTEO8zXgt4OcW-4AJe30wKX65zWMN8er/exec", {
+    method: "POST",
+    body: JSON.stringify(result),
+    headers: {
+      "Content-Type": "application/json"
+    }
+  })
+    .then(res => res.text())
+    .then(text => {
+      alert("回答を送信しました（Googleスプレッドシートに保存されました）");
+    })
+    .catch(err => {
+      console.error(err);
+      alert("送信に失敗しました");
+    });
+};
+
+
+    renderSlots();
+  </script>
+
+</body>
+</html>

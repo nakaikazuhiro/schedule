@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>開催者画面 - 日程調整</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    .calendar {
+      display: flex;
+      flex-direction: column;
+      max-width: 400px;
+    }
+    .date-input {
+      margin-bottom: 10px;
+    }
+    .time-slot-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 10px;
+    }
+    .time-slot {
+      border: 1px solid #ccc;
+      padding: 5px 10px;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    .selected { background-color: #4CAF50; color: white; } /* ○ */
+    .maybe { background-color: #FFD54F; color: black; }    /* △ */
+    .none { background-color: #e0e0e0; color: #666; }       /* × */
+    .selected-date {
+      margin-top: 20px;
+    }
+    .selected-time {
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>開催者画面：日程候補の設定</h1>
+
+  <div class="calendar">
+    <label for="date">日付を選択：</label>
+    <input type="date" id="date" class="date-input">
+    <div id="timeSlots" class="time-slot-grid"></div>
+  </div>
+
+  <h2>選択された候補日時</h2>
+  <div id="selectedDates" class="selected-date"></div>
+
+  <button onclick="submitSchedule()">日程を送信</button>
+
+  <script>
+    const selected = {}; // { "YYYY-MM-DD": { "09:00": "○", ... } }
+
+    const generateTimeSlots = () => {
+      const container = document.getElementById("timeSlots");
+      container.innerHTML = "";
+
+      const date = document.getElementById("date").value;
+      if (!date) return;
+
+      for (let h = 9; h < 19; h++) {
+        for (let m = 0; m < 60; m += 30) {
+          const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+          const div = document.createElement("div");
+          div.className = "time-slot";
+          div.textContent = time;
+          div.onclick = () => toggleTimeSlot(time);
+          container.appendChild(div);
+        }
+      }
+
+      highlightSlots(); // 描画後に選択状態を反映
+    };
+
+    const toggleTimeSlot = (time) => {
+      const date = document.getElementById("date").value;
+      if (!date) return alert("日付を選択してください");
+
+      if (!selected[date]) {
+        selected[date] = {};
+      }
+
+      const current = selected[date][time] || '×';
+      if (current === '×') {
+        selected[date][time] = '○';
+      } else if (current === '○') {
+        selected[date][time] = '△';
+      } else {
+        selected[date][time] = '×';
+      }
+
+      renderSelected();
+      highlightSlots();
+    };
+
+    const highlightSlots = () => {
+      const date = document.getElementById("date").value;
+      const timeStates = selected[date] || {};
+      const slots = document.querySelectorAll(".time-slot");
+
+      slots.forEach(slot => {
+        const state = timeStates[slot.textContent] || '×';
+        slot.classList.remove("selected", "maybe", "none");
+
+        if (state === '○') slot.classList.add("selected");
+        else if (state === '△') slot.classList.add("maybe");
+        else slot.classList.add("none");
+      });
+    };
+
+    const renderSelected = () => {
+      const container = document.getElementById("selectedDates");
+      container.innerHTML = "";
+
+      for (const [date, times] of Object.entries(selected)) {
+        const timeList = Object.entries(times)
+          .filter(([_, val]) => val !== '×')
+          .map(([time, val]) => `${time}(${val})`)
+          .sort();
+
+        if (timeList.length > 0) {
+          const div = document.createElement("div");
+          div.className = "selected-time";
+          div.innerHTML = `<strong>${date}</strong>: ${timeList.join(", ")}`;
+          container.appendChild(div);
+        }
+      }
+    };
+
+    const submitSchedule = () => {
+      if (Object.keys(selected).length === 0) {
+        alert("日程が選択されていません");
+        return;
+      }
+      const json = JSON.stringify(selected);
+      localStorage.setItem("scheduleData", json);
+      alert("日程候補を保存しました。参加者画面に進んでください。");
+    };
+
+    // 日付変更時のイベントで時間帯を更新
+    document.getElementById("date").addEventListener("change", () => {
+      generateTimeSlots();
+    });
+
+    // 初回は何も描画しない（日付未選択のため）
+  </script>
+
+</body>
+</html>
